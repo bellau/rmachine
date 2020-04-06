@@ -174,14 +174,13 @@ fn main() -> () {
     ls.spawn_local(async move {
         let mut forks = vec![];
         for i in 0..1_000 {
-            forks.push(fork(&format!("for{}",i)));
+            forks.push(fork(&format!("for{}", i)));
         }
 
-        
         for i in 0..1_000 {
-            let left = forks.get(i%1_000).unwrap();
-            let right = forks.get((i+1)%1_000).unwrap();
-            philosopher(&format!("p{}",i), left.clone(), right.clone());
+            let left = forks.get(i % 1_000).unwrap();
+            let right = forks.get((i + 1) % 1_000).unwrap();
+            philosopher(&format!("p{}", i), left.clone(), right.clone());
         }
     });
 

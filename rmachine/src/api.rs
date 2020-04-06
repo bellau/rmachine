@@ -13,7 +13,6 @@ pub trait Machine: Sized + Clone + Send + 'static {
     fn machine_id() -> &'static str {
         std::any::type_name::<Self>()
     }
-
 }
 
 #[async_trait(?Send)]
@@ -31,11 +30,7 @@ pub trait State: 'static {
     }
 }
 
-pub trait Output: Send + Clone + 'static {}
-
 pub trait InputHandler<I: 'static>: Machine {}
-
-pub trait OutputHandler<O: Output> {}
 
 pub struct StateContext<S: State> {
     executor_context: RefCell<StateExecutorContext<S>>,
@@ -75,13 +70,6 @@ impl<S: State> StateContext<S> {
     {
         self.executor_context.borrow_mut().handle_end(fun);
         FutNever
-    }
-
-    pub fn output<O: Output>(&self, o: O)
-    where
-        S::Machine: OutputHandler<O>,
-    {
-        self.executor_context.borrow_mut().handle_output(o);
     }
 
     pub async fn never(&self) -> Never {

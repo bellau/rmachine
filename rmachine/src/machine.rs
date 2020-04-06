@@ -71,14 +71,6 @@ impl<M: Machine + 'static> SyncStateMachineController<M> for SyncStateMachine<M>
         let _ = self.msg_sender.unbounded_send(Box::new(msg));
     }
 
-    fn output<'a, O: Output>(self: &'a Self) -> RStream<O> {
-        let (tx, rx) = futures::channel::mpsc::channel(10);
-        let msg = SyncOutputMessageEnvelope { tx: Some(tx) };
-        let _ = self.msg_sender.unbounded_send(Box::new(msg));
-
-        Box::pin(rx)
-    }
-
     fn end(&self) -> Pin<Box<dyn Future<Output = M::End>>> {
         async { futures::future::pending().await }.boxed_local()
     }
@@ -106,14 +98,6 @@ impl<M: Machine> LocalStateMachineController<M> for LocalStateMachine<M> {
 
         let msg = InputMessageEnvelope { input: Some(i) };
         let _ = self.msg_sender.unbounded_send(Box::new(msg));
-    }
-
-    fn output<O: Output>(&self) -> RStream<O> {
-        let (tx, rx) = crate::machine::channel::watch::channel();
-        let msg = OutputMessageEnvelope { tx: Some(tx) };
-        let _ = self.msg_sender.unbounded_send(Box::new(msg));
-
-        Box::pin(rx)
     }
 
     fn end(&self) -> Pin<Box<dyn Future<Output = M::End>>> {
@@ -177,49 +161,9 @@ impl<I: 'static> std::fmt::Debug for InputMessageEnvelope<I> {
     }
 }
 
-struct OutputMessageEnvelope<O: Output> {
-    tx: Option<crate::channel::watch::Sender<O>>,
-}
-
-impl<O: Output> MachineMessageEnvelope for OutputMessageEnvelope<O> {
-    fn handle(&mut self, ctx: &mut MachineExecutorContext) {
-        ctx.handle_output_tx(self.tx.take().unwrap());
-    }
-}
-
-impl<O: Output> std::fmt::Debug for OutputMessageEnvelope<O> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        f.debug_struct("Output").finish()
-    }
-}
-
-struct SyncOutputMessageEnvelope<O: Output> {
-    tx: Option<futures::channel::mpsc::Sender<O>>,
-}
-
-impl<O: Output> MachineMessageEnvelope for SyncOutputMessageEnvelope<O> {
-    fn handle(&mut self, ctx: &mut MachineExecutorContext) {
-        let mut tx = self.tx.take().unwrap();
-        let (ltx, mut lrx) = crate::channel::watch::channel();
-        spawner::spawn(async move {
-            while let Some(i) = lrx.next().await {
-                if let Err(_) = tx.send(i).await {
-                    break;
-                }
-            }
-        });
-        ctx.handle_output_tx(ltx);
-    }
-}
-
 use std::fmt::Formatter;
 
 use std::fmt::Result;
-impl<O: Output> std::fmt::Debug for SyncOutputMessageEnvelope<O> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        f.debug_struct("SuncOutput").finish()
-    }
-}
 
 pub trait SyncStateMachineController<M: Machine>: 'static {
     fn machine(&self) -> RStream<M>;
@@ -227,8 +171,6 @@ pub trait SyncStateMachineController<M: Machine>: 'static {
     fn input<I: 'static + Send>(&self, i: I)
     where
         M: InputHandler<I>;
-
-    fn output<'a, O: Output>(self: &'a Self) -> RStream<O>;
 
     fn end(&self) -> Pin<Box<dyn Future<Output = M::End>>>;
 }
@@ -239,8 +181,6 @@ pub trait LocalStateMachineController<M: Machine>: 'static {
     fn input<I: 'static>(&self, i: I)
     where
         M: InputHandler<I>;
-
-    fn output<'a, O: Output>(self: &'a Self) -> RStream<O>;
 
     fn end(&self) -> Pin<Box<dyn Future<Output = M::End>>>;
 }

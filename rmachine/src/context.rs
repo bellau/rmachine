@@ -1,4 +1,3 @@
-use super::api::*;
 use futures::prelude::*;
 use futures::task;
 use futures::task::Poll;
@@ -101,86 +100,6 @@ impl<I: 'static> Acceptor<I> {
                 self.inputs.len()
             );
         }
-    }
-}
-
-struct Outputer<O: Output> {
-    output: Option<O>,
-    senders: Vec<crate::channel::watch::Sender<O>>,
-}
-
-impl<O: Output> Outputer<O> {
-    fn handle_output(&mut self, o: O) {
-        self.senders.iter_mut().for_each(|s| {
-            let _ = s.start_send(o.clone());
-        });
-
-        self.output = Some(o);
-
-        self.senders.retain(|s| !s.is_closed());
-    }
-
-    fn handle_tx(&mut self, mut tx: crate::channel::watch::Sender<O>) {
-        if let Some(o) = self.output.as_ref() {
-            let _ = tx.start_send(o.clone());
-        }
-        self.senders.push(tx);
-        self.senders.retain(|s| !s.is_closed());
-    }
-    fn new() -> Self {
-        Outputer { output: None, senders: vec![] }
-    }
-}
-struct OutputHandler {
-    outputer: Box<dyn Any>,
-}
-
-impl OutputHandler {
-    fn new<O: Output>() -> Self {
-        let a = Outputer::<O>::new();
-        OutputHandler { outputer: Box::new(a) }
-    }
-
-    fn can<O: Output>(&self) -> bool {
-        self.outputer.is::<Outputer<O>>()
-    }
-
-    fn outputer<O: Output>(&mut self) -> Option<&mut Outputer<O>> {
-        self.outputer.downcast_mut::<Outputer<O>>()
-    }
-}
-
-pub(crate) struct Outputers {
-    outputers: Vec<OutputHandler>,
-}
-
-impl Outputers {
-    pub(crate) fn new() -> Self {
-        Outputers { outputers: vec![] }
-    }
-
-    pub(crate) fn handle_output<O: Output>(&mut self, o: O)
-    where
-        Self: Sized,
-    {
-        self.outputer().handle_output(o);
-    }
-
-    pub(crate) fn handle_tx<O: Output>(&mut self, tx: crate::channel::watch::Sender<O>)
-    where
-        Self: Sized,
-    {
-        self.outputer().handle_tx(tx);
-    }
-
-    fn outputer<O: Output>(&mut self) -> &mut Outputer<O> {
-        if let Some(pos) = self.outputers.iter().position(|a| a.can::<O>()) {
-            return self.outputers.get_mut(pos).unwrap().outputer::<O>().unwrap();
-        }
-
-        let outputer = OutputHandler::new::<O>();
-        self.outputers.push(outputer);
-        self.outputers.last_mut().unwrap().outputer::<O>().unwrap()
     }
 }
 

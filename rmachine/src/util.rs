@@ -126,7 +126,6 @@ where
     select_new4(future1, future2, future3, future4)
 }
 
-
 pub fn select5<Fut1, Fut2, Fut3, Fut4, Fut5>(
     future1: Fut1,
     future2: Fut2,

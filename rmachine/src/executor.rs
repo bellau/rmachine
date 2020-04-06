@@ -78,7 +78,7 @@ impl<S: State> MachineStateExecutor<S::Machine> for StateExecutor<S> {
                 return Either::Right(end_fun(self.state));
             }
             _ => {
-                panic!(("woop"));
+                panic!("woop");
             }
         }
     }
@@ -99,7 +99,7 @@ impl<S: State> StateExecutorContext<S> {
 }
 pub(crate) struct StateExecutorContext<S: State> {
     machine_context: Rc<RefCell<MachineExecutorContext>>,
-    transition: RefCell<Option<channel::oneshot::Sender<FnStateTransition<S,S::Machine>>>>,
+    transition: RefCell<Option<channel::oneshot::Sender<FnStateTransition<S, S::Machine>>>>,
     end: RefCell<
         Option<channel::oneshot::Sender<Box<dyn FnOnce(S) -> <S::Machine as Machine>::End>>>,
     >,
@@ -161,23 +161,15 @@ impl<S: State> StateExecutorContext<S> {
     {
         MachineExecutorContext::handle_future_input(&self.machine_context, fut);
     }
-
-    pub(crate) fn handle_output<O: Output>(&mut self, o: O)
-    where
-        S::Machine: OutputHandler<O>,
-    {
-        self.machine_context.borrow_mut().handle_output(o);
-    }
 }
 
 pub(crate) struct MachineExecutorContext {
     pub(crate) acceptors: Acceptors,
-    pub(crate) outputers: Outputers,
 }
 
 impl MachineExecutorContext {
     pub(crate) fn new() -> MachineExecutorContext {
-        MachineExecutorContext { acceptors: Acceptors::new(), outputers: Outputers::new() }
+        MachineExecutorContext { acceptors: Acceptors::new() }
     }
     pub(crate) fn handle_acceptor<I: 'static>(&mut self, tx: oneshot::Sender<I>) {
         self.acceptors.handle_tx(tx);
@@ -185,14 +177,6 @@ impl MachineExecutorContext {
 
     pub(crate) fn hanle_input<I: 'static>(&mut self, i: I) {
         self.acceptors.handle_input(i);
-    }
-
-    pub(crate) fn handle_output_tx<O: Output>(&mut self, tx: crate::channel::watch::Sender<O>) {
-        self.outputers.handle_tx(tx);
-    }
-
-    pub(crate) fn handle_output<O: Output>(&mut self, o: O) {
-        self.outputers.handle_output(o);
     }
 
     pub(crate) fn handle_stream<St, I>(context: &Rc<RefCell<Self>>, mut stream: St)

@@ -1,4 +1,4 @@
-#![recursion_limit="256"]
+#![recursion_limit = "256"]
 pub mod api;
 pub mod channel;
 pub mod context;
