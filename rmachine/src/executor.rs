@@ -113,8 +113,8 @@ impl<S: State> StateExecutorContext<S> {
         D: State<Machine = S::Machine>,
     {
         let fun = |ctx: Rc<RefCell<MachineExecutorContext>>, state: S| {
-            let m = state.machine();
             let ns = fun(state);
+            let m = ns.machine();
             log::trace!(
                 "transition from {}:{} to {}:{}",
                 std::any::type_name::<S::Machine>(),
